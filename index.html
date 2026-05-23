@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Smart Bus Tracker — Live Transit</title>
+    <link rel="stylesheet" href="typography.css" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+
+    <!-- PRELOADER -->
+    <div id="preloader">
+      <div class="loader-content">
+        <dotlottie-player
+          src="./assets/bus-loader.json"
+          background="transparent"
+          speed="1.8"
+          loop
+          autoplay
+        ></dotlottie-player>
+        <h2 class="pre-text">Smart Bus Tracker</h2>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ MOBILE SHELL ═══════════════════ -->
+    <div class="mobile-only mobile-shell">
+      <div class="app-container">
+        <div class="main-content" id="mobMainContent">
+
+          <!-- HOME -->
+          <div id="mob-homePage" class="page active-page">
+            <div class="mob-header">
+              <h1 class="logo-wrap">
+                <img src="./img/smart.png" alt="Smart Bus Tracker Logo" class="logo-img" />
+              </h1>
+              <div class="live-badge"><span class="live-dot"></span> Live</div>
+            </div>
+
+            <input id="mobPickupInput" class="search-input" list="wbStops" type="text" placeholder="Pickup location..." />
+            <input id="mobDestinationInput" class="search-input" list="wbStops" type="text" placeholder="Destination location..." />
+            <button id="mobSearchBtn" class="search-btn" type="button">Search</button>
+            <div class="dest-hint" id="mobSearchHint"></div>
+
+            <div id="mobResultsWrap" style="display: none; margin-top: 14px">
+              <div class="date-filter-group">
+                <label>All Dates</label>
+                <select id="mobDateSelect">
+                  <option value="all" selected>All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="calendar">Choose from calendar</option>
+                </select>
+                <input type="date" id="mobDatePicker" />
+                <span id="mobSelectedDateLabel"></span>
+              </div>
+              <div class="section-row">
+                <h3>Available buses</h3>
+                <span class="count-badge" id="mobBusCountLive"></span>
+              </div>
+              <div id="mobBusList"></div>
+            </div>
+          </div>
+
+          <!-- MAP -->
+          <div id="mob-mapPage" class="page mob-map-page">
+            <div class="mob-map-frame">
+              <div id="mobFullMap"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Mobile bottom nav -->
+        <div class="bottom-nav">
+          <button class="nav-item active" data-nav="home">
+            <i class="fas fa-home"></i><span>Home</span>
+          </button>
+          <!-- MAP button — navigates to map.html -->
+          <button class="nav-item" data-nav="map" data-map-link>
+            <i class="fas fa-map"></i><span>Map</span>
+          </button>
+          <!-- ALERTS button — navigates to alerts.html -->
+          <!-- MY PROFILE button — navigates to profile.html -->
+          <button class="nav-item" data-nav="profile" onclick="window.location.href='./profile/profile.html'">
+            <i class="fas fa-user"></i><span>Profile</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ DESKTOP SHELL ═══════════════════ -->
+    <div class="desktop-only desktop-shell">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <img src="../img/smart white.png" alt="Smart Bus Tracker Logo" class="desktop-logo" />
+          <p>Live Transit Dashboard</p>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="sd-nav-item active" data-dsk="home">
+            <i class="fas fa-home"></i> Dashboard
+          </button>
+          <!-- MAP button — navigates to map.html -->
+          <button class="sd-nav-item" data-map-link>
+            <i class="fas fa-map"></i> Live Map
+          </button>
+          <!-- ALERTS button — navigates to alerts.html -->
+          <!-- MY PROFILE button — navigates to profile.html -->
+          <button class="sd-nav-item" onclick="window.location.href='./profile/profile.html'">
+            <i class="fas fa-user"></i> My Profile
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="sidebar-user-info">
+              <p>Guest commuter</p>
+              <span>Guest mode</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <div class="desk-main">
+        <!-- Top bar -->
+        <div class="desk-topbar">
+          <h1 id="deskPageTitle">Dashboard</h1>
+          <div class="topbar-right">
+            <div class="topbar-loc">
+              <i class="fas fa-map-marker-alt"></i> Siliguri Bus Stand, Sevoke Rd
+            </div>
+            <div class="alert-menu-wrap">
+              <button class="top-alert-btn" id="dashboardAlertBtn" type="button" aria-label="Show alerts">
+                <i class="fas fa-bell"></i>
+                <span>3</span>
+              </button>
+              <div class="alert-popover" id="dashboardAlertPopover">
+                <div class="alert-popover-head">
+                  <strong>Alerts</strong>
+                  <span>Live</span>
+                </div>
+                <div class="alert-mini-item amber">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  <p><strong>NBS Express 42A</strong><br />Arriving in ~3 min, moderate crowd.</p>
+                </div>
+                <div class="alert-mini-item blue">
+                  <i class="fas fa-hourglass-half"></i>
+                  <p><strong>City Link 09C</strong><br />Heavy load, possible 5-8 min delay.</p>
+                </div>
+                <div class="alert-mini-item sky">
+                  <i class="fas fa-cloud-rain"></i>
+                  <p><strong>Weather advisory</strong><br />Light rain near Sevoke Rd.</p>
+                </div>
+              </div>
+            </div>
+            <div class="live-badge"><span class="live-dot"></span> Live</div>
+          </div>
+        </div>
+
+        <!-- Desk body -->
+        <div class="desk-body">
+
+          <!-- ── DASHBOARD ── -->
+          <div class="d-page d-active" id="desk-homePage">
+            <div class="stats-bar">
+              <div class="stat-chip">
+                <div class="stat-chip-icon orange"><i class="fas fa-bus"></i></div>
+                <div class="stat-chip-text">
+                  <strong id="deskBusCountChip"></strong><span>Buses nearby</span>
+                </div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip-icon blue"><i class="fas fa-clock"></i></div>
+                <div class="stat-chip-text">
+                  <strong id="deskNextChip"></strong><span>Next arrival</span>
+                </div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip-icon green"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-chip-text">
+                  <strong></strong><span>On-time today</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-grid">
+              <div class="panel">
+                <div class="panel-title">Plan Your Trip</div>
+                <input id="deskPickupInput" class="search-input" list="wbStops" type="text" placeholder="Pickup location..." />
+                <input id="deskDestinationInput" class="search-input" list="wbStops" type="text" placeholder="Destination location..." />
+                <button id="deskSearchBtn" class="search-btn" type="button">Search</button>
+                <div class="dest-hint" id="deskSearchHint"></div>
+
+                <div id="deskResultsWrap" style="display: none; margin-top: 14px">
+                  <div class="date-filter-group">
+                    <label>All Dates</label>
+                    <select id="deskDateSelect">
+                      <option value="all" selected>All Dates</option>
+                      <option value="today">Today</option>
+                      <option value="tomorrow">Tomorrow</option>
+                      <option value="calendar">Choose from calendar</option>
+                    </select>
+                    <input type="date" id="deskDatePicker" />
+                    <span id="deskSelectedDateLabel"></span>
+                  </div>
+                  <div class="section-row">
+                    <h3>Available buses</h3>
+                    <span class="count-badge" id="deskBusCountLive"></span>
+                  </div>
+                  <div id="deskBusList"></div>
+                </div>
+              </div>
+
+              <div class="map-panel">
+                <div class="map-panel-header">
+                  <h3>
+                    <i class="fas fa-map" style="color: var(--sky); margin-right: 8px"></i>Bus Positions
+                  </h3>
+                  <div class="live-badge"><span class="live-dot"></span> realtime</div>
+                </div>
+                <div id="deskMapContainer"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LIVE MAP -->
+          <div class="d-page" id="desk-mapPage">
+            <div class="desk-map-full">
+              <div class="desk-map-holder">
+                <div id="deskMapFull"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <datalist id="wbStops">
+      <option value="Siliguri Bus Stand"></option>
+      <option value="Sevoke Rd"></option>
+      <option value="Sukna Bus Stop"></option>
+      <option value="Salbari Chowk"></option>
+      <option value="City Centre Mall"></option>
+      <option value="Matigara"></option>
+      <option value="Bagdogra Airport"></option>
+      <option value="Pradhan Nagar"></option>
+      <option value="Raiganj"></option>
+      <option value="Malda"></option>
+      <option value="Kolkata"></option>
+    </datalist>
+
+    <!-- ═════════════ SCRIPTS ═════════════ -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="./profile-sync.js"></script>
+    <script src="./script.js"></script>
+    <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
+
+  </body>
+</html>

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>Alerts — Smart Bus Tracker</title>
+    <link rel="stylesheet" href="../typography.css" />
+    <link rel="stylesheet" href="../style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- ═══════════════════ MOBILE SHELL ═══════════════════ -->
+    <div class="mobile-only mobile-shell">
+      <div class="app-container">
+        <div class="main-content">
+          <!-- ALERTS PAGE -->
+          <div id="mob-alertsPage" class="page active-page">
+            <div class="mob-header">
+              <h1>Alerts</h1>
+              <div class="live-badge">
+                <i class="fas fa-bell"></i>&nbsp; 3 new
+              </div>
+            </div>
+            <div class="alert-item">
+              <i
+                class="fas fa-exclamation-triangle"
+                style="color: #f59e0b; margin-right: 8px"
+              ></i>
+              <strong>NBS Express (42A)</strong> — Arriving in ~3 min, moderate
+              crowd expected.
+            </div>
+            <div class="alert-item" style="border-left-color: #3b82f6">
+              <i
+                class="fas fa-hourglass-half"
+                style="color: #3b82f6; margin-right: 8px"
+              ></i>
+              <strong>Route 09C (City Link)</strong> — Heavy load, expect
+              delays.
+            </div>
+            <div class="alert-item" style="border-left-color: #60a5fa">
+              <i
+                class="fas fa-cloud-rain"
+                style="color: #60a5fa; margin-right: 8px"
+              ></i>
+              <strong>Weather advisory:</strong> Light rain on Sevoke Rd, drive
+              safe.
+            </div>
+            <div class="alert-item" style="border-left-color: #10b981">
+              <i
+                class="fas fa-check-circle"
+                style="color: #10b981; margin-right: 8px"
+              ></i>
+              <strong>Hill Queen (BUS 17)</strong> — On schedule, low occupancy.
+            </div>
+            <div class="alert-item" style="border-left-color: #cbd5e1">
+              <i
+                class="fas fa-road"
+                style="margin-right: 8px; color: var(--muted)"
+              ></i>
+              <strong>Construction near Pradhan Nagar</strong> — Minor delay
+              possible for 42A.
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile bottom nav -->
+        <div class="bottom-nav">
+          <button
+            class="nav-item"
+            data-nav="home"
+            onclick="window.location.href = '../index.html'"
+          >
+            <i class="fas fa-home"></i><span>Home</span>
+          </button>
+          <button
+            class="nav-item"
+            data-nav="map"
+            data-map-link
+          >
+            <i class="fas fa-map"></i><span>Map</span>
+          </button>
+          <button
+            class="nav-item"
+            data-nav="profile"
+            onclick="window.location.href = '../profile/profile.html'"
+          >
+            <i class="fas fa-user"></i><span>Profile</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ DESKTOP SHELL ═══════════════════ -->
+    <div class="desktop-only desktop-shell">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <img
+            src="../img/smart white.png"
+            alt="Smart Bus Tracker Logo"
+            class="desktop-logo"
+          />
+          <p>Live Transit Dashboard</p>
+        </div>
+        <nav class="sidebar-nav">
+          <button
+            class="sd-nav-item"
+            onclick="window.location.href = '../index.html'"
+          >
+            <i class="fas fa-home"></i> Dashboard
+          </button>
+          <button
+            class="sd-nav-item"
+            data-map-link
+          >
+            <i class="fas fa-map"></i> Live Map
+          </button>
+          <button
+            class="sd-nav-item"
+            onclick="window.location.href = '../profile/profile.html'"
+          >
+            <i class="fas fa-user"></i> My Profile
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="sidebar-user-info">
+              <p>Guest commuter</p>
+              <span>Guest mode</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <div class="desk-main">
+        <!-- Top bar -->
+        <div class="desk-topbar">
+          <h1>Alerts</h1>
+          <div class="topbar-right">
+            <div class="topbar-loc">
+              <i class="fas fa-map-marker-alt"></i> Siliguri Bus Stand, Sevoke
+              Rd
+            </div>
+            <div class="live-badge"><span class="live-dot"></span> Live</div>
+          </div>
+        </div>
+
+        <!-- Desk body -->
+        <div class="desk-body">
+          <!-- ── ALERTS ── -->
+          <div class="d-page d-active" id="desk-alertsPage">
+            <div class="alerts-grid">
+              <div class="desk-alert">
+                <i
+                  class="fas fa-exclamation-triangle desk-alert-icon"
+                  style="color: #f59e0b"
+                ></i>
+                <strong>NBS Express (42A)</strong><br />Arriving in ~3 min.
+                Moderate crowd expected. Minor delay possible near Pradhan Nagar
+                due to construction.
+              </div>
+              <div class="desk-alert info">
+                <i
+                  class="fas fa-hourglass-half desk-alert-icon"
+                  style="color: #3b82f6"
+                ></i>
+                <strong>Route 09C — City Link</strong><br />Heavy passenger load
+                reported. Expect 5–8 min delay on segments approaching Sevoke
+                Rd.
+              </div>
+              <div class="desk-alert rain">
+                <i
+                  class="fas fa-cloud-rain desk-alert-icon"
+                  style="color: #60a5fa"
+                ></i>
+                <strong>Weather Advisory</strong><br />Light rain in Sevoke Rd
+                area. Slippery surfaces near bus stand. Drive and board safely.
+              </div>
+              <div class="desk-alert ok">
+                <i
+                  class="fas fa-check-circle desk-alert-icon"
+                  style="color: #10b981"
+                ></i>
+                <strong>Hill Queen (BUS 17)</strong><br />Running on schedule.
+                Currently low occupancy — good time to board for a comfortable
+                ride.
+              </div>
+              <div class="desk-alert road" style="grid-column: span 2">
+                <i
+                  class="fas fa-road desk-alert-icon"
+                  style="color: #94a3b8"
+                ></i>
+                <strong>Road Work — Pradhan Nagar Crossing</strong><br />Active
+                construction near Pradhan Nagar. Route 42A vehicles may take a
+                2-min longer alternate path. Monitor live map for real-time
+                positions.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="../profile-sync.js"></script>
+    <script src="../script.js"></script>
+  </body>
+</html>

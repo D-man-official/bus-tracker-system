@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Smart Bus Tracker - Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../typography.css" />
+    <link rel="stylesheet" href="profile.css" />
+  </head>
+  <body>
+    <div class="mobile-shell mobile-only">
+      <main class="phone">
+        <header class="mobile-topbar">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1>Profile</h1>
+          </div>
+          <button class="icon-btn" id="mobileEditBtn" type="button" title="Edit profile">
+            <i class="fas fa-pen"></i>
+          </button>
+        </header>
+
+        <section id="mobileProfile"></section>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="nav-item" type="button" onclick="window.location.href='../index.html'">
+          <i class="fas fa-home"></i><span>Home</span>
+        </button>
+        <button class="nav-item" type="button" data-map-link>
+          <i class="fas fa-map"></i><span>Map</span>
+        </button>
+        <button class="nav-item active" type="button">
+          <i class="fas fa-user"></i><span>Profile</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="desktop-shell desktop-only">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <img src="../img/smart white.png" alt="Smart Bus Tracker" />
+          <span>Customer Console</span>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button class="side-link" type="button" onclick="window.location.href='../index.html'">
+            <i class="fas fa-home"></i> Dashboard
+          </button>
+          <button class="side-link" type="button" data-map-link>
+            <i class="fas fa-map"></i> Live Map
+          </button>
+          <button class="side-link active" type="button">
+            <i class="fas fa-user"></i> My Profile
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="sidebar-user-info">
+              <p>Guest commuter</p>
+              <span>Guest mode</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="desk-topbar">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1>Profile</h1>
+          </div>
+          <button class="ghost-btn" id="desktopEditBtn" type="button"><i class="fas fa-pen"></i> Edit</button>
+        </header>
+
+        <section id="desktopProfile"></section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="authModal" hidden>
+      <section class="modal-card auth-card">
+        <button class="modal-close" data-close-modal type="button">&times;</button>
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-auth-tab="signin" type="button">Sign in</button>
+          <button class="auth-tab" data-auth-tab="signup" type="button">Sign up</button>
+        </div>
+
+        <form class="auth-form active" id="signinForm">
+          <h2>Welcome back</h2>
+          <label>Email<input id="signinEmail" type="email" autocomplete="email" required /></label>
+          <label>Password<input id="signinPassword" type="password" autocomplete="current-password" required /></label>
+          <button class="primary-btn" type="submit">Sign in</button>
+        </form>
+
+        <form class="auth-form" id="signupForm">
+          <h2>Create account</h2>
+          <label>Full name<input id="signupName" type="text" autocomplete="name" required /></label>
+          <label>Email<input id="signupEmail" type="email" autocomplete="email" required /></label>
+          <label>Password<input id="signupPassword" type="password" autocomplete="new-password" required /></label>
+          <button class="primary-btn" type="submit">Sign up</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-overlay" id="editModal" hidden>
+      <section class="modal-card edit-card">
+        <button class="modal-close" data-close-modal type="button">&times;</button>
+        <h2>Edit profile</h2>
+        <div class="photo-editor">
+          <div class="avatar-preview" id="editAvatarPreview"></div>
+          <label class="secondary-btn">
+            <i class="fas fa-camera"></i> Upload photo
+            <input id="photoInput" type="file" accept="image/*" hidden />
+          </label>
+          <button class="ghost-btn" id="removePhotoBtn" type="button">Remove</button>
+        </div>
+
+        <form id="editForm" class="edit-form">
+          <label>Full name<input id="editName" type="text" required /></label>
+          <label>Phone<input id="editPhone" type="tel" /></label>
+          <label>Email<input id="editEmail" type="email" /></label>
+          <label>Date of birth<input id="editDob" type="date" /></label>
+          <label>Gender<input id="editGender" type="text" placeholder="Female, Male, Non-binary..." /></label>
+          <label>Emergency contact<input id="editEmergency" type="text" /></label>
+          <button class="primary-btn" type="submit">Save changes</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-overlay" id="logoutModal" hidden>
+      <section class="modal-card confirm-card">
+        <h2>Logout?</h2>
+        <p>Your saved routes and profile will stay on this device.</p>
+        <div class="modal-actions">
+          <button class="ghost-btn" data-close-modal type="button">Cancel</button>
+          <button class="danger-btn" id="confirmLogoutBtn" type="button">Logout</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-overlay" id="cropModal" hidden>
+      <section class="modal-card crop-card">
+        <button class="modal-close" id="cancelCropX" type="button">&times;</button>
+        <h2>Crop photo</h2>
+        <div class="crop-frame" id="cropFrame">
+          <img id="cropImage" alt="Crop preview" />
+        </div>
+        <div class="crop-controls">
+          <label>Zoom<input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1" /></label>
+          <div class="modal-actions">
+            <button class="ghost-btn" id="cancelCropBtn" type="button">Cancel</button>
+            <button class="primary-btn" id="applyCropBtn" type="button">Use photo</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="../profile-sync.js"></script>
+    <script src="profile.js"></script>
+  </body>
+</html>

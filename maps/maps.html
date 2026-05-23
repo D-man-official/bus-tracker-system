@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Live Map — Smart Bus Tracker</title>
+    <link rel="stylesheet" href="../typography.css" />
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+
+    <!-- ═══════════════════ MOBILE SHELL ═══════════════════ -->
+    <div class="mobile-only mobile-shell">
+      <div class="app-container">
+        <div class="main-content">
+
+          <!-- MAP PAGE -->
+          <div id="mob-mapPage" class="page mob-map-page active-page">
+            <div class="mob-header" style="margin-bottom: 8px">
+              <h1>Live Map</h1>
+              <button class="inside-bus-toggle" data-inside-bus-toggle type="button" aria-pressed="false">
+                <span>Inside bus</span><span class="toggle-switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="trip-summary">
+              <div>
+                <span>Pickup</span>
+                <strong data-trip-pickup>--</strong>
+              </div>
+              <div>
+                <span>Destination</span>
+                <strong data-trip-destination>--</strong>
+              </div>
+              <div>
+                <span>Distance left</span>
+                <strong data-trip-distance>Waiting</strong>
+              </div>
+              <div>
+                <span>ETA</span>
+                <strong data-trip-duration>--</strong>
+              </div>
+              <div>
+                <span>Reach by</span>
+                <strong data-trip-arrival>--</strong>
+              </div>
+            </div>
+            <div class="mob-map-frame"><div id="mobFullMap"></div></div>
+            <p class="map-status" data-map-status>Choose a bus from search to track ETA.</p>
+          </div>
+
+        </div>
+
+        <!-- Mobile bottom nav -->
+        <div class="bottom-nav">
+          <button class="nav-item" data-nav="home" onclick="window.location.href='../index.html'">
+            <i class="fas fa-home"></i><span>Home</span>
+          </button>
+          <button class="nav-item active" data-nav="map">
+            <i class="fas fa-map"></i><span>Map</span>
+          </button>
+          <button class="nav-item" data-nav="profile" onclick="window.location.href='../profile/profile.html'">
+            <i class="fas fa-user"></i><span>Profile</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ DESKTOP SHELL ═══════════════════ -->
+    <div class="desktop-only desktop-shell">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <img src="../img/smart white.png" alt="Smart Bus Tracker Logo" class="desktop-logo" />
+          <p>Live Transit Dashboard</p>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="sd-nav-item" onclick="window.location.href='../index.html'">
+            <i class="fas fa-home"></i> Dashboard
+          </button>
+          <button class="sd-nav-item active">
+            <i class="fas fa-map"></i> Live Map
+          </button>
+          <button class="sd-nav-item" onclick="window.location.href='../profile/profile.html'">
+            <i class="fas fa-user"></i> My Profile
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-avatar">
+              <i class="fas fa-user-astronaut"></i>
+            </div>
+            <div class="sidebar-user-info">
+              <p>Guest commuter</p>
+              <span>Guest mode</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <div class="desk-main">
+        <!-- Top bar -->
+        <div class="desk-topbar">
+          <h1>Live Map</h1>
+          <div class="topbar-right">
+            <div class="live-badge"><span class="live-dot"></span> Live</div>
+          </div>
+        </div>
+
+        <!-- Desk body -->
+        <div class="desk-body">
+
+          <!-- ── MAP PAGE ── -->
+          <div class="d-page d-active" id="desk-mapPage">
+            <div class="desk-map-full">
+              <div class="desk-map-full-header">
+                <h3 style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--navy); letter-spacing: -0.02em;">
+                  <i class="fas fa-map" style="color: var(--sky); margin-right: 9px"></i>Live Route
+                </h3>
+                <div class="route-actions">
+                  <button class="inside-bus-toggle" data-inside-bus-toggle type="button" aria-pressed="false">
+                    <span>Inside bus</span><span class="toggle-switch" aria-hidden="true"></span>
+                  </button>
+                  <div class="live-badge"><span class="live-dot"></span> realtime</div>
+                </div>
+              </div>
+              <div class="trip-summary trip-summary-desktop">
+                <div>
+                  <span>Pickup</span>
+                  <strong data-trip-pickup>--</strong>
+                </div>
+                <div>
+                  <span>Destination</span>
+                  <strong data-trip-destination>--</strong>
+                </div>
+                <div>
+                  <span>Distance left</span>
+                  <strong data-trip-distance>Waiting</strong>
+                </div>
+                <div>
+                  <span>ETA</span>
+                  <strong data-trip-duration>--</strong>
+                </div>
+                <div>
+                  <span>Reach by</span>
+                  <strong data-trip-arrival>--</strong>
+                </div>
+              </div>
+              <div id="deskMapFull"></div>
+            </div>
+            <p class="map-status" data-map-status>Choose a bus from search to track ETA.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════════ SCRIPTS ═════════════ -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="../profile-sync.js"></script>
+    <script src="../script.js"></script>
+
+  </body>
+</html>
