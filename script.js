@@ -728,7 +728,8 @@ let lastLiveRouteRefresh = 0;
 let liveRouteRefreshTimer = null;
 let plannedRouteState = null;
 const LIVE_ROUTE_REFRESH_MS = 12000;
-const INSIDE_BUS_ROUTE_TOLERANCE_KM = 2.5;
+const INSIDE_BUS_ROUTE_TOLERANCE_DEG = 0.02;
+const INSIDE_BUS_ROUTE_TOLERANCE_KM = 2.0;
 
 function loadActiveTrip() {
   try {
@@ -872,6 +873,15 @@ function showLiveLocationOnMaps(position, options = {}) {
   showGuestLocation(deskMapFull, position);
   showGuestLocation(mobMap, position);
   showGuestLocation(deskMapHome, position);
+
+  if (insideBusMode) {
+    clearBusMarkers();
+    updateMapStatus(selectedBusName
+      ? `You are inside ${selectedBusName}. Your live location is following the route.`
+      : 'Inside bus mode is on. Your live location is following the route.');
+    return;
+  }
+
   suggestInsideBusToggle();
   refreshLiveTripOnMaps(options.force);
 }
@@ -951,7 +961,7 @@ function askGuestLocation(mapRef) {
   );
 }
 
-function askTripLocation(options = {}) {
+function askTripLocation() {
   if (!navigator.geolocation) {
     updateMapStatus('Location is not available in this browser.');
     return;
@@ -959,30 +969,79 @@ function askTripLocation(options = {}) {
 
   updateMapStatus('Allow location access so the map can place you on this route.');
   navigator.geolocation.getCurrentPosition(
-    async position => {
+    position => {
       showLiveLocationOnMaps(position, { force: true });
-      if (options.insideBus) {
-        try {
-          const allowed = await canEnterInsideBusMode();
-          if (!allowed) return;
-        } catch (error) {
-          updateMapStatus('Could not verify this bus route right now. Showing the route only.');
-          return;
-        }
-
-        setInsideBusMode(true);
-        clearBusMarkers();
-        startLocationWatch();
-        showLiveLocationOnMaps(position, { force: true });
-        updateMapStatus(selectedBusName
-          ? `You are inside ${selectedBusName}. Your journey will keep updating on the map.`
-          : 'You are inside the bus. Your journey will keep updating on the map.');
-      }
-      startLocationWatch();
     },
     () => updateMapStatus('Location permission was blocked. Allow location to calculate your ETA.'),
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
+}
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Location is not available in this browser.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 15000
+    });
+  });
+}
+
+async function enterInsideBusMode() {
+  if (!selectedBusName) {
+    warnNotInsideSelectedBus();
+    return;
+  }
+
+  updateMapStatus('Checking your location against this bus route...');
+
+  let position;
+  try {
+    position = await getCurrentPosition();
+  } catch (error) {
+    updateMapStatus('Location permission was blocked. Allow location to use Inside bus.');
+    return;
+  }
+
+  guestLocation = {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude
+  };
+
+  try {
+    await ensurePlannedRouteState();
+  } catch (error) {
+    updateMapStatus('Could not verify this bus route right now. Showing the route only.');
+    return;
+  }
+
+  if (!isGuestOnSelectedRoute()) {
+    warnNotInsideSelectedBus();
+    return;
+  }
+
+  insideBusSuggested = false;
+  setInsideBusMode(true);
+  clearBusMarkers();
+  showLiveLocationOnMaps(position, { force: true });
+  startLocationWatch();
+  updateMapStatus(`You are inside ${selectedBusName}. Your live location is now following this route.`);
+}
+
+function exitInsideBusMode() {
+  setInsideBusMode(false);
+  stopLocationWatch();
+  renderPlannedRoute(deskMapFull);
+  renderPlannedRoute(mobMap);
+  renderPlannedRoute(deskMapHome);
+  updateMapStatus(selectedBusName
+    ? `${selectedBusName} route shown. Inside bus mode is off.`
+    : 'Inside bus mode is off.');
 }
 
 function startLocationWatch() {
@@ -1027,52 +1086,12 @@ function suggestInsideBusToggle() {
 function bindInsideBusToggles() {
   document.querySelectorAll('[data-inside-bus-toggle]').forEach(button => {
     button.addEventListener('click', async () => {
-      const nextInsideBusMode = !insideBusMode;
-      insideBusSuggested = false;
-
-      if (nextInsideBusMode && !selectedBusName) {
-        warnNotInsideSelectedBus();
-        return;
-      }
-
-      if (nextInsideBusMode && !guestLocation) {
-        askTripLocation({ insideBus: true });
-        return;
-      }
-
-      if (nextInsideBusMode) {
-        try {
-          const allowed = await canEnterInsideBusMode();
-          if (!allowed) return;
-        } catch (error) {
-          updateMapStatus('Could not verify this bus route right now. Showing the route only.');
-          return;
-        }
-      }
-
-      setInsideBusMode(nextInsideBusMode);
-
       if (insideBusMode) {
-        clearBusMarkers();
-        startLocationWatch();
-      } else {
-        stopLocationWatch();
+        exitInsideBusMode();
+        return;
       }
 
-      if (guestLocation) {
-        const currentPosition = {
-          coords: {
-            latitude: guestLocation.lat,
-            longitude: guestLocation.lng
-          }
-        };
-        showLiveLocationOnMaps(currentPosition, { force: true });
-        if (insideBusMode) {
-          updateMapStatus(selectedBusName
-            ? `You are inside ${selectedBusName}. Your journey will keep updating on the map.`
-            : 'You are inside the bus. Your journey will keep updating on the map.');
-        }
-      }
+      await enterInsideBusMode();
     });
   });
 }
@@ -1196,21 +1215,6 @@ async function ensurePlannedRouteState() {
   const route = await resolveRoutePath(pickup, destination, selectedPickup, selectedDestination);
   plannedRouteState = { route, pickup, destination };
   return plannedRouteState;
-}
-
-async function canEnterInsideBusMode() {
-  const routeState = await ensurePlannedRouteState();
-  if (!routeState?.route?.points?.length) {
-    updateMapStatus('Pick a bus with a valid pickup and destination before using Inside bus.');
-    return false;
-  }
-
-  if (!isGuestOnSelectedRoute()) {
-    warnNotInsideSelectedBus();
-    return false;
-  }
-
-  return true;
 }
 
 function warnNotInsideSelectedBus() {
@@ -1577,6 +1581,30 @@ async function renderTripOnMap(mapRef) {
 let mobSearchResults = [];
 let deskSearchResults = [];
 
+function showRouteOnMobileMap(busName) {
+  selectedBusName = busName;
+  plannedRouteState = null;
+
+  const pickup = document.getElementById('mobPickupInput')?.value.trim() || '';
+  const destination = document.getElementById('mobDestinationInput')?.value.trim() || '';
+  selectedPickup = pickup;
+  selectedDestination = destination;
+  saveActiveTrip(busName, pickup, destination);
+
+  switchMobPage('map');
+
+  setTimeout(() => {
+    if (mobMap?.map) mobMap.map.invalidateSize();
+
+    if (pickup && destination) {
+      renderPlannedRoute(mobMap);
+    } else {
+      focusBusOnMap(mobMap, busName);
+      updateMapStatus(`${busName} selected. Search a route to track ETA and use Inside bus.`);
+    }
+  }, 180);
+}
+
 function initApp() {
   if (window.ProfileSync) window.ProfileSync.sync();
   initDashboardAlertPopup();
@@ -1618,14 +1646,14 @@ function initApp() {
         return;
       }
       const card = event.target.closest('.bus-card[data-bus-name]');
-      if (card) openMapForBus(card.dataset.busName, 'mobile');
+      if (card) showRouteOnMobileMap(card.dataset.busName);
     });
     mobBusList.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       const card = event.target.closest('.bus-card[data-bus-name]');
       if (card) {
         event.preventDefault();
-        openMapForBus(card.dataset.busName, 'mobile');
+        showRouteOnMobileMap(card.dataset.busName);
       }
     });
   }
