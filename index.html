@@ -214,9 +214,15 @@
                   <h3>
                     <i class="fas fa-map" style="color: var(--sky); margin-right: 8px"></i>Bus Positions
                   </h3>
-                  <div class="live-badge"><span class="live-dot"></span> realtime</div>
+                  <div class="route-actions">
+                    <button class="inside-bus-toggle" data-inside-bus-toggle type="button" aria-pressed="false">
+                      <span>Inside bus</span><span class="toggle-switch" aria-hidden="true"></span>
+                    </button>
+                    <div class="live-badge"><span class="live-dot"></span> realtime</div>
+                  </div>
                 </div>
                 <div id="deskMapContainer"></div>
+                <p class="map-status" data-map-status>Choose a bus from search to track ETA.</p>
               </div>
             </div>
           </div>
@@ -224,10 +230,44 @@
           <!-- LIVE MAP -->
           <div class="d-page" id="desk-mapPage">
             <div class="desk-map-full">
+              <div class="desk-map-full-header">
+                <h3 style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--navy); letter-spacing: -0.02em;">
+                  <i class="fas fa-map" style="color: var(--sky); margin-right: 9px"></i>Live Route
+                </h3>
+                <div class="route-actions">
+                  <button class="inside-bus-toggle" data-inside-bus-toggle type="button" aria-pressed="false">
+                    <span>Inside bus</span><span class="toggle-switch" aria-hidden="true"></span>
+                  </button>
+                  <div class="live-badge"><span class="live-dot"></span> realtime</div>
+                </div>
+              </div>
+              <div class="trip-summary trip-summary-desktop">
+                <div>
+                  <span>Pickup</span>
+                  <strong data-trip-pickup>--</strong>
+                </div>
+                <div>
+                  <span>Destination</span>
+                  <strong data-trip-destination>--</strong>
+                </div>
+                <div>
+                  <span>Distance left</span>
+                  <strong data-trip-distance>Waiting</strong>
+                </div>
+                <div>
+                  <span>ETA</span>
+                  <strong data-trip-duration>--</strong>
+                </div>
+                <div>
+                  <span>Reach by</span>
+                  <strong data-trip-arrival>--</strong>
+                </div>
+              </div>
               <div class="desk-map-holder">
                 <div id="deskMapFull"></div>
               </div>
             </div>
+            <p class="map-status" data-map-status>Choose a bus from search to track ETA.</p>
           </div>
 
         </div>

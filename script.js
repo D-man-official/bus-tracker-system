@@ -728,7 +728,7 @@ let lastLiveRouteRefresh = 0;
 let liveRouteRefreshTimer = null;
 let plannedRouteState = null;
 const LIVE_ROUTE_REFRESH_MS = 12000;
-const INSIDE_BUS_ROUTE_TOLERANCE_KM = 0.75;
+const INSIDE_BUS_ROUTE_TOLERANCE_KM = 2.5;
 
 function loadActiveTrip() {
   try {
@@ -963,18 +963,16 @@ function askTripLocation(options = {}) {
       showLiveLocationOnMaps(position, { force: true });
       if (options.insideBus) {
         try {
-          await ensurePlannedRouteState();
+          const allowed = await canEnterInsideBusMode();
+          if (!allowed) return;
         } catch (error) {
           updateMapStatus('Could not verify this bus route right now. Showing the route only.');
           return;
         }
 
-        if (!isGuestOnSelectedRoute()) {
-          warnNotInsideSelectedBus();
-          return;
-        }
-
         setInsideBusMode(true);
+        clearBusMarkers();
+        startLocationWatch();
         showLiveLocationOnMaps(position, { force: true });
         updateMapStatus(selectedBusName
           ? `You are inside ${selectedBusName}. Your journey will keep updating on the map.`
@@ -1044,21 +1042,18 @@ function bindInsideBusToggles() {
 
       if (nextInsideBusMode) {
         try {
-          await ensurePlannedRouteState();
+          const allowed = await canEnterInsideBusMode();
+          if (!allowed) return;
         } catch (error) {
           updateMapStatus('Could not verify this bus route right now. Showing the route only.');
           return;
         }
       }
 
-      if (nextInsideBusMode && !isGuestOnSelectedRoute()) {
-        warnNotInsideSelectedBus();
-        return;
-      }
-
       setInsideBusMode(nextInsideBusMode);
 
       if (insideBusMode) {
+        clearBusMarkers();
         startLocationWatch();
       } else {
         stopLocationWatch();
@@ -1203,6 +1198,21 @@ async function ensurePlannedRouteState() {
   return plannedRouteState;
 }
 
+async function canEnterInsideBusMode() {
+  const routeState = await ensurePlannedRouteState();
+  if (!routeState?.route?.points?.length) {
+    updateMapStatus('Pick a bus with a valid pickup and destination before using Inside bus.');
+    return false;
+  }
+
+  if (!isGuestOnSelectedRoute()) {
+    warnNotInsideSelectedBus();
+    return false;
+  }
+
+  return true;
+}
+
 function warnNotInsideSelectedBus() {
   setInsideBusMode(false);
   stopLocationWatch();
@@ -1214,6 +1224,18 @@ function warnNotInsideSelectedBus() {
     renderPlannedRoute(mobMap),
     renderPlannedRoute(deskMapHome)
   ]).finally(() => updateMapStatus(warning));
+}
+
+function clearBusMarker(mapRef) {
+  if (!mapRef?.map || !mapRef.busMarker) return;
+  mapRef.map.removeLayer(mapRef.busMarker);
+  mapRef.busMarker = null;
+}
+
+function clearBusMarkers() {
+  clearBusMarker(deskMapFull);
+  clearBusMarker(mobMap);
+  clearBusMarker(deskMapHome);
 }
 
 function pointAlongPath(points, distanceFromStart) {
@@ -1444,32 +1466,6 @@ function setSelectedBusMarker(mapRef, route, pickup, destination) {
   return { bus, busLatLng, travelledKm, remainingKm, progress };
 }
 
-function setRidingBusMarker(mapRef, userLatLng) {
-  if (!mapRef || !mapRef.map || !selectedBusName || !insideBusMode) return;
-
-  const bus = mapBuses.find(item => item.name === selectedBusName);
-  const popup = `
-    <b>${escapeHTML(selectedBusName)}</b><br>
-    You are riding this bus now.<br>
-    Live journey is following your location.
-  `;
-
-  if (bus) {
-    bus.currentLat = userLatLng[0];
-    bus.currentLng = userLatLng[1];
-    bus.lat = userLatLng[0];
-    bus.lng = userLatLng[1];
-  }
-
-  if (mapRef.busMarker) {
-    mapRef.busMarker.setLatLng(userLatLng).setPopupContent(popup);
-  } else {
-    mapRef.busMarker = L.marker(userLatLng, { icon: getMapIcon('bus') })
-      .bindPopup(popup)
-      .addTo(mapRef.map);
-  }
-}
-
 async function renderPlannedRoute(mapRef) {
   if (!mapRef || !mapRef.map || !selectedPickup || !selectedDestination) return;
 
@@ -1517,7 +1513,8 @@ async function renderPlannedRoute(mapRef) {
   plannedRouteState = { route, pickup, destination };
   setRouteLine(mapRef, route.points);
 
-  const busState = setSelectedBusMarker(mapRef, route, pickup, destination);
+  const busState = insideBusMode ? null : setSelectedBusMarker(mapRef, route, pickup, destination);
+  if (insideBusMode) clearBusMarker(mapRef);
   const summaryDistance = busState ? busState.remainingKm : route.distance;
   const eta = etaText(summaryDistance);
   const boundsPoints = busState ? [...route.points, busState.busLatLng] : route.points;
@@ -1553,7 +1550,7 @@ async function renderTripOnMap(mapRef) {
   const userLatLng = [userPoint.lat, userPoint.lng];
 
   setDestinationMarker(mapRef, destination);
-  setRidingBusMarker(mapRef, userLatLng);
+  if (insideBusMode) clearBusMarker(mapRef);
   updateMapStatus('Loading road route from your location...');
 
   const route = await resolveRoutePath(userPoint, destination, selectedPickup, selectedDestination);
