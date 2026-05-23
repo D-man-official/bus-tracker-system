@@ -274,7 +274,7 @@ function generatedRouteBuses(pickup, destination, start, end) {
   const count = 3 + (seed % 3);
   const capacities = ['Empty', 'Moderate', 'Crowded'];
   const types = ['Express', 'Rocket', 'Deluxe', 'Local'];
-  const firstDeparture = Date.now() + (8 + (seed % 18)) * 60000;
+  const firstDeparture = Date.now() - (15 + (seed % 55)) * 60000;
 
   return Array.from({ length: count }, (_, index) => {
     const operator = routeOperator(start, end, index);
@@ -671,16 +671,12 @@ async function runSearch(prefix) {
 
   return searchResult(matched, true);
 }
-
 /*
-
-}
 
   if (hint) hint.textContent = `${pickup} → ${destination}`;
 }
 
 */
-
 // Live map data and helpers
 const mapBuses = buses.map((bus, index) => ({
   ...bus,
@@ -693,6 +689,7 @@ const mapBuses = buses.map((bus, index) => ({
 function rememberRouteBuses(list) {
   if (!Array.isArray(list) || !list.length) return;
 
+  saveRouteBuses(list);
   list.forEach(bus => {
     const existing = mapBuses.find(item => item.name === bus.name);
     if (existing) {
@@ -722,6 +719,7 @@ const ACTIVE_TRIP_KEY = 'smartBusActiveTrip';
 const ACTIVE_ROUTE_BUSES_KEY = 'smartBusRouteBuses';
 const MAP_LOCATION_REQUEST_KEY = 'smartBusAskLocationOnMap';
 const savedTrip = loadActiveTrip();
+rememberRouteBuses(loadRouteBuses());
 let selectedBusName = routeParams.get('bus') || savedTrip.bus || '';
 let selectedPickup = routeParams.get('pickup') || savedTrip.pickup || '';
 let selectedDestination = routeParams.get('destination') || savedTrip.destination || '';
@@ -739,6 +737,18 @@ function loadActiveTrip() {
 
 function saveActiveTrip(bus, pickup, destination) {
   sessionStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify({ bus, pickup, destination }));
+}
+
+function loadRouteBuses() {
+  try {
+    return JSON.parse(sessionStorage.getItem(ACTIVE_ROUTE_BUSES_KEY)) || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveRouteBuses(list) {
+  sessionStorage.setItem(ACTIVE_ROUTE_BUSES_KEY, JSON.stringify(list || []));
 }
 
 function queueMapLocationRequest() {
@@ -805,7 +815,7 @@ function initMapWithFeatures(containerId) {
   }).addTo(map);
 
   setTimeout(() => map.invalidateSize(), 150);
-  return { map, userMarker: null, destinationMarker: null, routeLine: null };
+  return { map, userMarker: null, destinationMarker: null, routeLine: null, busMarker: null };
 }
 
 function initTransitMaps() {
@@ -1029,6 +1039,42 @@ function pathDistanceKm(points) {
   }, 0);
 }
 
+function pointAlongPath(points, distanceFromStart) {
+  if (!points.length) return null;
+  if (points.length === 1 || distanceFromStart <= 0) return points[0];
+
+  let travelled = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const segment = distanceKm(
+      { lat: previous[0], lng: previous[1] },
+      { lat: current[0], lng: current[1] }
+    );
+
+    if (travelled + segment >= distanceFromStart) {
+      const ratio = segment ? (distanceFromStart - travelled) / segment : 0;
+      return [
+        previous[0] + (current[0] - previous[0]) * ratio,
+        previous[1] + (current[1] - previous[1]) * ratio
+      ];
+    }
+
+    travelled += segment;
+  }
+
+  return points[points.length - 1];
+}
+
+function selectedBusProgress(bus, routeDistance) {
+  if (!bus?.departureTs || !routeDistance) return 0;
+
+  const busKmph = bus.route?.toLowerCase().includes('express') || bus.route?.toLowerCase().includes('rocket') ? 52 : 42;
+  const tripMs = Math.max(20 * 60000, (routeDistance / busKmph) * 60 * 60000);
+  const elapsedMs = Date.now() - bus.departureTs;
+  return Math.max(0, Math.min(0.98, elapsedMs / tripMs));
+}
+
 function etaText(distance) {
   const busKmph = 50;
   const minutes = Math.max(1, Math.round((distance / busKmph) * 60));
@@ -1185,6 +1231,42 @@ function setRouteLine(mapRef, points) {
   }).addTo(mapRef.map);
 }
 
+function setSelectedBusMarker(mapRef, route, pickup, destination) {
+  if (!mapRef || !mapRef.map || !selectedBusName) return null;
+
+  const bus = mapBuses.find(item => item.name === selectedBusName);
+  if (!bus) return null;
+
+  const progress = selectedBusProgress(bus, route.distance);
+  const travelledKm = route.distance * progress;
+  const remainingKm = Math.max(0, route.distance - travelledKm);
+  const busPoint = pointAlongPath(route.points, travelledKm) || [pickup.lat, pickup.lng];
+  const busLatLng = [busPoint[0], busPoint[1]];
+
+  bus.currentLat = busLatLng[0];
+  bus.currentLng = busLatLng[1];
+  bus.lat = busLatLng[0];
+  bus.lng = busLatLng[1];
+
+  const popup = `
+    <b>${escapeHTML(bus.name)}</b><br>
+    ${escapeHTML(bus.route || 'Route bus')}<br>
+    Started: ${bus.departureTs ? timeText(bus.departureTs) : 'Not available'}<br>
+    Covered: ${travelledKm.toFixed(1)} km<br>
+    Left: ${remainingKm.toFixed(1)} km
+  `;
+
+  if (mapRef.busMarker) {
+    mapRef.busMarker.setLatLng(busLatLng).setPopupContent(popup);
+  } else {
+    mapRef.busMarker = L.marker(busLatLng, { icon: getMapIcon('bus') })
+      .bindPopup(popup)
+      .addTo(mapRef.map);
+  }
+
+  return { bus, busLatLng, travelledKm, remainingKm, progress };
+}
+
 async function renderPlannedRoute(mapRef) {
   if (!mapRef || !mapRef.map || !selectedPickup || !selectedDestination) return;
 
@@ -1231,10 +1313,16 @@ async function renderPlannedRoute(mapRef) {
   const route = await resolveRoutePath(pickup, destination, selectedPickup, selectedDestination);
   setRouteLine(mapRef, route.points);
 
-  const eta = etaText(route.distance);
-  mapRef.map.fitBounds(L.latLngBounds(route.points).pad(0.16), { animate: true });
-  updateTripSummary(route.distance, eta);
-  updateMapStatus('Route shown. Allow location to calculate ETA from where you are now.');
+  const busState = setSelectedBusMarker(mapRef, route, pickup, destination);
+  const summaryDistance = busState ? busState.remainingKm : route.distance;
+  const eta = etaText(summaryDistance);
+  const boundsPoints = busState ? [...route.points, busState.busLatLng] : route.points;
+
+  mapRef.map.fitBounds(L.latLngBounds(boundsPoints).pad(0.16), { animate: true });
+  updateTripSummary(summaryDistance, eta);
+  updateMapStatus(busState
+    ? `${busState.bus.name} is ${busState.travelledKm.toFixed(1)} km from ${pickup.name}. ${busState.remainingKm.toFixed(1)} km left to ${destination.name}.`
+    : 'Route shown. Select a bus to see where it is on this route.');
 }
 
 async function renderTripOnMap(mapRef) {
@@ -1395,7 +1483,7 @@ function initApp() {
     }
   }
 
-  if (arrivedFromBusClick || selectedBusName || selectedDestination) {
+  if (!selectedBusName && (arrivedFromBusClick || selectedDestination)) {
     askTripLocation();
   }
 }
