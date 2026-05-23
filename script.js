@@ -87,12 +87,12 @@ const routeIndex = [
   { pickup: 'Siliguri Bus Stand', destination: 'City Centre Mall', buses: ['City Link'] },
   { pickup: 'Siliguri Bus Stand', destination: 'Matigara', buses: ['Hill Queen', 'City Link'] },
   { pickup: 'Siliguri Bus Stand', destination: 'Bagdogra Airport', buses: ['NBS Express'] },
-  { pickup: 'Raiganj', destination: 'Kolkata', buses: ['NBS Express', 'City Link'] },
-  { pickup: 'Kolkata', destination: 'Raiganj', buses: ['NBS Express', 'City Link'] },
+  { pickup: 'Raiganj State Garrage', destination: 'Kolkata', buses: ['NBS Express', 'City Link'] },
+  { pickup: 'Kolkata', destination: 'Raiganj State Garrage', buses: ['NBS Express', 'City Link'] },
   { pickup: 'Malda', destination: 'Kolkata', buses: ['NBS Express'] },
   { pickup: 'Kolkata', destination: 'Malda', buses: ['NBS Express'] },
-  { pickup: 'Raiganj', destination: 'Malda', buses: ['Hill Queen'] },
-  { pickup: 'Malda', destination: 'Raiganj', buses: ['Hill Queen'] },
+  { pickup: 'Raiganj State Garrage', destination: 'Malda', buses: ['Hill Queen'] },
+  { pickup: 'Malda', destination: 'Raiganj State Garrage', buses: ['Hill Queen'] },
   { pickup: 'Sevoke Rd', destination: 'Sukna Bus Stop', buses: ['NBS Express'] },
   { pickup: 'Sevoke Rd', destination: 'Salbari Chowk', buses: ['NBS Express', 'City Link'] },
   { pickup: 'Sevoke Rd', destination: 'City Centre Mall', buses: ['City Link'] },
@@ -109,7 +109,8 @@ const stopCoordinates = {
   matigara: { name: 'Matigara', lat: 26.7167, lng: 88.3833 },
   'bagdogra airport': { name: 'Bagdogra Airport', lat: 26.6812, lng: 88.3286 },
   'pradhan nagar': { name: 'Pradhan Nagar', lat: 26.7161, lng: 88.4104 },
-  raiganj: { name: 'Raiganj State Bus Garage', lat: 25.6128, lng: 88.1245 },
+  raiganj: { name: 'Raiganj State Garrage', lat: 25.6128, lng: 88.1245 },
+  'raiganj state garrage': { name: 'Raiganj State Garrage', lat: 25.6128, lng: 88.1245 },
   malda: { name: 'Malda State Bus Stand', lat: 25.0044, lng: 88.1458 },
   kolkata: { name: 'Kolkata State Bus Stand, Esplanade', lat: 22.5625, lng: 88.3498 },
   howrah: { name: 'Howrah', lat: 22.5892, lng: 88.3103 },
@@ -191,7 +192,7 @@ function localPlaceSuggestions(query, limit = 6) {
 }
 
 const curatedRoutePaths = {
-  'raiganj|kolkata': [
+  'raiganj state garrage|kolkata': [
     [25.6128, 88.1245],
     [25.5350, 88.1325],
     [25.4210, 88.1280],
@@ -220,7 +221,13 @@ const curatedRoutePaths = {
 };
 
 const curatedRouteDistances = {
-  'raiganj|kolkata': 409
+  'raiganj state garrage|kolkata': 409
+};
+
+const STOP_ALIASES = {
+  'raiganj': 'raiganj state garrage',
+  'raiganj state bus garage': 'raiganj state garrage',
+  'raiganj state garage': 'raiganj state garrage'
 };
 
 function arrivalText(ts) {
@@ -237,7 +244,8 @@ function timeText(ts) {
 }
 
 function normalizeStop(value) {
-  return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const key = (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return STOP_ALIASES[key] || key;
 }
 
 function getMatchingBuses(pickup, destination) {
@@ -543,19 +551,6 @@ function setupPlaceSuggest(inputId, isDestination = false) {
     latestQuery = query;
     const local = localPlaceSuggestions(query);
     render(local, query.length < 2 && !local.length ? 'Start typing a West Bengal place' : '');
-
-    if (query.length < 2) return;
-    try {
-      const remote = await fetchWestBengalSuggestions(query);
-      if (latestQuery !== query) return;
-      const merged = [...local];
-      remote.forEach(place => {
-        if (!merged.some(item => normalizeStop(item.name) === normalizeStop(place.name))) merged.push(place);
-      });
-      render(merged.slice(0, 7), merged.length ? '' : 'No West Bengal places found');
-    } catch (error) {
-      if (!local.length) render([], 'Live suggestions unavailable');
-    }
   };
 
   input.addEventListener('input', () => {
