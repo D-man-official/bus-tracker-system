@@ -480,7 +480,8 @@ function renderMatchedSearchList(prefix, list) {
 
   const pickup = document.getElementById(`${prefix}PickupInput`)?.value.trim() || selectedPickup;
   const destination = document.getElementById(`${prefix}DestinationInput`)?.value.trim() || selectedDestination;
-  container.innerHTML = `${routeActionHTML(pickup, destination, 'View full route')}${list.map(busCardHTML).join('')}`;
+  const routeAction = prefix === 'mob' ? '' : routeActionHTML(pickup, destination, 'View full route');
+  container.innerHTML = `${routeAction}${list.map(busCardHTML).join('')}`;
 }
 
 function searchResult(list = [], routeReady = false) {
@@ -1482,11 +1483,6 @@ function initApp() {
   if (mobSearchBtn) {
     mobSearchBtn.addEventListener('click', async () => {
       mobSearchResults = await runSearch('mob');
-      if (mobSearchResults.routeReady) {
-        const pickup = document.getElementById('mobPickupInput')?.value.trim() || '';
-        const destination = document.getElementById('mobDestinationInput')?.value.trim() || '';
-        openMapForRoute(pickup, destination);
-      }
     });
   }
 
