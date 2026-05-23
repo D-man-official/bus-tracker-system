@@ -229,6 +229,13 @@ function arrivalText(ts) {
   return m === 0 ? 'Arriving now' : `${m} min`;
 }
 
+function timeText(ts) {
+  return new Date(ts).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
 function normalizeStop(value) {
   return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
@@ -244,6 +251,52 @@ function getMatchingBuses(pickup, destination) {
 
   if (!matched) return [];
   return buses.filter(bus => matched.buses.includes(bus.name));
+}
+
+function seededNumber(seed) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function routeOperator(start, end, index) {
+  const northRoute = Math.max(start.lat, end.lat) >= 25.4 || start.name.toLowerCase().includes('siliguri') || end.name.toLowerCase().includes('siliguri');
+  const southRoute = Math.min(start.lat, end.lat) <= 24.6 || start.name.toLowerCase().includes('kolkata') || end.name.toLowerCase().includes('kolkata');
+  if (northRoute && southRoute) return index % 2 === 0 ? 'NBSTC' : 'SBSTC';
+  return northRoute ? 'NBSTC' : 'SBSTC';
+}
+
+function generatedRouteBuses(pickup, destination, start, end) {
+  const seed = seededNumber(`${normalizeStop(pickup)}|${normalizeStop(destination)}`);
+  const count = 3 + (seed % 3);
+  const capacities = ['Empty', 'Moderate', 'Crowded'];
+  const types = ['Express', 'Rocket', 'Deluxe', 'Local'];
+  const firstDeparture = Date.now() + (8 + (seed % 18)) * 60000;
+
+  return Array.from({ length: count }, (_, index) => {
+    const operator = routeOperator(start, end, index);
+    const serviceNo = String(1000 + ((seed + index * 173) % 8900));
+    const departureTs = firstDeparture + index * (22 + ((seed + index * 7) % 19)) * 60000;
+    const capacity = capacities[(seed + index) % capacities.length];
+
+    return {
+      name: `${operator} ${serviceNo}`,
+      route: `${operator} ${types[(seed + index) % types.length]}`,
+      baseMin: Math.max(0, Math.round((departureTs - Date.now()) / 60000)),
+      arrivalTs: departureTs,
+      departureTs,
+      capacity,
+      extra: `Starts ${timeText(departureTs)} from ${start.name}`,
+      pickup,
+      destination,
+      lat: start.lat,
+      lng: start.lng,
+      generated: true
+    };
+  });
 }
 
 function isInsideWestBengal(point) {
@@ -368,6 +421,9 @@ async function resolveTripPlaces(pickup, destination) {
 function busCardHTML(bus) {
   const cap = bus.capacity;
   const icon = cap === 'Empty' ? 'fa-user-check' : cap === 'Crowded' ? 'fa-users-slash' : 'fa-users';
+  const timing = bus.departureTs
+    ? `<span class="arrival-time"><i class="far fa-clock"></i>Starts ${timeText(bus.departureTs)}</span>`
+    : `<span class="arrival-time"><i class="far fa-clock"></i>${arrivalText(bus.arrivalTs)}</span>`;
 
   return `
     <div class="bus-card" role="button" tabindex="0" data-bus-name="${bus.name}" title="Show ${bus.name} on map">
@@ -376,7 +432,7 @@ function busCardHTML(bus) {
         <span class="bus-route">${bus.route}</span>
       </div>
       <div class="bus-meta">
-        <span class="arrival-time"><i class="far fa-clock"></i>${arrivalText(bus.arrivalTs)}</span>
+        ${timing}
         <span class="capacity ${cap}"><i class="fas ${icon}"></i>${cap}</span>
       </div>
       ${bus.extra ? `<div class="extra-location"><i class="fas fa-location-dot"></i>${bus.extra}</div>` : ''}
@@ -570,7 +626,7 @@ async function runSearch(prefix) {
   }
 
   if (hint) hint.textContent = 'Searching West Bengal places...';
-  const matched = getMatchingBuses(pickup, destination);
+  let matched = getMatchingBuses(pickup, destination);
   let places = { start: getStop(pickup), end: getStop(destination) };
 
   if (!places.start || !places.end) {
@@ -596,21 +652,20 @@ async function runSearch(prefix) {
   if (wrap) wrap.style.display = 'block';
 
   if (!matched.length) {
-    if (count) count.textContent = 'Route ready';
-    if (list) {
-      list.innerHTML = `
-        <div class="route-result-card">
-          <div>
-            <strong>${escapeHTML(places.start.name)} to ${escapeHTML(places.end.name)}</strong>
-            <span>No matching bus is saved yet, but the road route can be shown.</span>
-          </div>
-          ${routeActionHTML(pickup, destination)}
-        </div>
-      `;
-    }
-    return searchResult([], true);
+    matched = generatedRouteBuses(pickup, destination, places.start, places.end);
+  } else {
+    matched = matched.map((bus, index) => ({
+      ...bus,
+      departureTs: bus.departureTs || Date.now() + (bus.baseMin + index * 14) * 60000,
+      extra: bus.extra || `Starts from ${places.start.name}`,
+      pickup,
+      destination,
+      lat: places.start.lat,
+      lng: places.start.lng
+    }));
   }
 
+  rememberRouteBuses(matched);
   if (count) count.textContent = `${matched.length} found`;
   renderMatchedSearchList(prefix, matched);
 
@@ -635,12 +690,36 @@ const mapBuses = buses.map((bus, index) => ({
   direction: index % 2 === 0 ? 1 : -1
 }));
 
+function rememberRouteBuses(list) {
+  if (!Array.isArray(list) || !list.length) return;
+
+  list.forEach(bus => {
+    const existing = mapBuses.find(item => item.name === bus.name);
+    if (existing) {
+      Object.assign(existing, bus, {
+        currentLat: bus.lat,
+        currentLng: bus.lng
+      });
+      return;
+    }
+
+    mapBuses.push({
+      ...bus,
+      currentLat: bus.lat,
+      currentLng: bus.lng,
+      drift: 0.0006 + (mapBuses.length % 5) * 0.00018,
+      direction: mapBuses.length % 2 === 0 ? 1 : -1
+    });
+  });
+}
+
 let deskMapHome = null;
 let deskMapFull = null;
 let mobMap = null;
 let mapsReady = false;
 const routeParams = new URLSearchParams(window.location.search);
 const ACTIVE_TRIP_KEY = 'smartBusActiveTrip';
+const ACTIVE_ROUTE_BUSES_KEY = 'smartBusRouteBuses';
 const MAP_LOCATION_REQUEST_KEY = 'smartBusAskLocationOnMap';
 const savedTrip = loadActiveTrip();
 let selectedBusName = routeParams.get('bus') || savedTrip.bus || '';
