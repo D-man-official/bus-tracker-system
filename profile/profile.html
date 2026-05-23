@@ -96,7 +96,14 @@
         <form class="auth-form active" id="signinForm">
           <h2>Welcome back</h2>
           <label>Email<input id="signinEmail" type="email" autocomplete="email" required /></label>
-          <label>Password<input id="signinPassword" type="password" autocomplete="current-password" required /></label>
+          <label>Password
+            <span class="password-field">
+              <input id="signinPassword" type="password" autocomplete="current-password" required />
+              <button class="password-toggle" type="button" data-toggle-password="signinPassword" aria-label="Show password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </span>
+          </label>
           <button class="primary-btn" type="submit">Sign in</button>
         </form>
 
@@ -104,7 +111,14 @@
           <h2>Create account</h2>
           <label>Full name<input id="signupName" type="text" autocomplete="name" required /></label>
           <label>Email<input id="signupEmail" type="email" autocomplete="email" required /></label>
-          <label>Password<input id="signupPassword" type="password" autocomplete="new-password" required /></label>
+          <label>Password
+            <span class="password-field">
+              <input id="signupPassword" type="password" autocomplete="new-password" required />
+              <button class="password-toggle" type="button" data-toggle-password="signupPassword" aria-label="Show password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </span>
+          </label>
           <button class="primary-btn" type="submit">Sign up</button>
         </form>
       </section>
