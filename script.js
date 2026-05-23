@@ -111,8 +111,84 @@ const stopCoordinates = {
   'pradhan nagar': { name: 'Pradhan Nagar', lat: 26.7161, lng: 88.4104 },
   raiganj: { name: 'Raiganj State Bus Garage', lat: 25.6128, lng: 88.1245 },
   malda: { name: 'Malda State Bus Stand', lat: 25.0044, lng: 88.1458 },
-  kolkata: { name: 'Kolkata State Bus Stand, Esplanade', lat: 22.5625, lng: 88.3498 }
+  kolkata: { name: 'Kolkata State Bus Stand, Esplanade', lat: 22.5625, lng: 88.3498 },
+  howrah: { name: 'Howrah', lat: 22.5892, lng: 88.3103 },
+  'howrah station': { name: 'Howrah Station', lat: 22.5839, lng: 88.3426 },
+  digha: { name: 'Digha', lat: 21.6278, lng: 87.5197 },
+  darjeeling: { name: 'Darjeeling', lat: 27.0410, lng: 88.2663 },
+  kalimpong: { name: 'Kalimpong', lat: 27.0594, lng: 88.4695 },
+  jalpaiguri: { name: 'Jalpaiguri', lat: 26.5215, lng: 88.7196 },
+  'cooch behar': { name: 'Cooch Behar', lat: 26.3242, lng: 89.4510 },
+  alipurduar: { name: 'Alipurduar', lat: 26.4919, lng: 89.5271 },
+  'new town': { name: 'New Town, Kolkata', lat: 22.5810, lng: 88.4529 },
+  'salt lake': { name: 'Salt Lake, Kolkata', lat: 22.5867, lng: 88.4171 },
+  barasat: { name: 'Barasat', lat: 22.7248, lng: 88.4854 },
+  barrackpore: { name: 'Barrackpore', lat: 22.7674, lng: 88.3883 },
+  krishnanagar: { name: 'Krishnanagar', lat: 23.4009, lng: 88.5014 },
+  baharampur: { name: 'Baharampur', lat: 24.0988, lng: 88.2679 },
+  bolpur: { name: 'Bolpur', lat: 23.6693, lng: 87.6889 },
+  durgapur: { name: 'Durgapur', lat: 23.5204, lng: 87.3119 },
+  asansol: { name: 'Asansol', lat: 23.6739, lng: 86.9524 },
+  burdwan: { name: 'Burdwan', lat: 23.2324, lng: 87.8615 },
+  midnapore: { name: 'Midnapore', lat: 22.4257, lng: 87.3199 },
+  kharagpur: { name: 'Kharagpur', lat: 22.3460, lng: 87.2320 },
+  haldia: { name: 'Haldia', lat: 22.0667, lng: 88.0698 },
+  purulia: { name: 'Purulia', lat: 23.3321, lng: 86.3652 },
+  bankura: { name: 'Bankura', lat: 23.2325, lng: 87.0716 },
+  tarakeswar: { name: 'Tarakeswar', lat: 22.8861, lng: 88.0136 },
+  chandannagar: { name: 'Chandannagar', lat: 22.8623, lng: 88.3670 },
+  serampore: { name: 'Serampore', lat: 22.7528, lng: 88.3422 },
+  bongaon: { name: 'Bongaon', lat: 23.0441, lng: 88.8277 },
+  basirhat: { name: 'Basirhat', lat: 22.6574, lng: 88.8672 }
 };
+
+const WEST_BENGAL_BOUNDS = {
+  minLat: 21.35,
+  maxLat: 27.35,
+  minLng: 85.75,
+  maxLng: 89.95
+};
+const GEOCODE_CACHE_KEY = 'smartBusWbGeocodeCache';
+
+function loadGeocodeCache() {
+  try {
+    return JSON.parse(sessionStorage.getItem(GEOCODE_CACHE_KEY)) || {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveGeocodeCache(cache) {
+  sessionStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache));
+}
+
+function stopOptionList() {
+  const seen = new Set();
+  return Object.values(stopCoordinates).filter(stop => {
+    const key = normalizeStop(stop.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function localPlaceSuggestions(query, limit = 6) {
+  const q = normalizeStop(query);
+  if (!q) return stopOptionList().slice(0, limit);
+
+  return stopOptionList()
+    .map(stop => {
+      const name = normalizeStop(stop.name);
+      let score = 0;
+      if (name === q) score = 100;
+      else if (name.startsWith(q)) score = 80;
+      else if (name.includes(q)) score = 50;
+      return { ...stop, score };
+    })
+    .filter(stop => stop.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
 
 const curatedRoutePaths = {
   'raiganj|kolkata': [
@@ -170,6 +246,125 @@ function getMatchingBuses(pickup, destination) {
   return buses.filter(bus => matched.buses.includes(bus.name));
 }
 
+function isInsideWestBengal(point) {
+  return point.lat >= WEST_BENGAL_BOUNDS.minLat &&
+    point.lat <= WEST_BENGAL_BOUNDS.maxLat &&
+    point.lng >= WEST_BENGAL_BOUNDS.minLng &&
+    point.lng <= WEST_BENGAL_BOUNDS.maxLng;
+}
+
+function looksLikeWestBengalResult(result) {
+  const state = (result.address?.state || '').toLowerCase();
+  const country = (result.address?.country || '').toLowerCase();
+  const displayName = (result.display_name || '').toLowerCase();
+  return state === 'west bengal' ||
+    (country === 'india' && displayName.includes('west bengal')) ||
+    displayName.includes('west bengal, india');
+}
+
+async function resolveWestBengalPlace(value) {
+  const key = normalizeStop(value);
+  if (!key) return null;
+
+  const localStop = stopCoordinates[key];
+  if (localStop) return localStop;
+
+  const cache = loadGeocodeCache();
+  if (cache[key]) return cache[key];
+
+  const query = `${value}, West Bengal, India`;
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5',
+    countrycodes: 'in',
+    q: query,
+    viewbox: `${WEST_BENGAL_BOUNDS.minLng},${WEST_BENGAL_BOUNDS.maxLat},${WEST_BENGAL_BOUNDS.maxLng},${WEST_BENGAL_BOUNDS.minLat}`,
+    bounded: '1'
+  });
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+  if (!response.ok) throw new Error('Place search failed');
+
+  const data = await response.json();
+  const match = data.find(result => {
+    const point = { lat: Number(result.lat), lng: Number(result.lon) };
+    return Number.isFinite(point.lat) &&
+      Number.isFinite(point.lng) &&
+      isInsideWestBengal(point) &&
+      looksLikeWestBengalResult(result);
+  });
+
+  if (!match) return null;
+
+  const resolved = {
+    name: match.name || value,
+    lat: Number(match.lat),
+    lng: Number(match.lon)
+  };
+  cache[key] = resolved;
+  saveGeocodeCache(cache);
+  return resolved;
+}
+
+async function fetchWestBengalSuggestions(value) {
+  const key = normalizeStop(value);
+  if (key.length < 2) return [];
+
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5',
+    countrycodes: 'in',
+    q: `${value}, West Bengal, India`,
+    viewbox: `${WEST_BENGAL_BOUNDS.minLng},${WEST_BENGAL_BOUNDS.maxLat},${WEST_BENGAL_BOUNDS.maxLng},${WEST_BENGAL_BOUNDS.minLat}`,
+    bounded: '1'
+  });
+
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`);
+  if (!response.ok) return [];
+
+  const data = await response.json();
+  const cache = loadGeocodeCache();
+  const seen = new Set();
+  const suggestions = [];
+
+  data.forEach(result => {
+    const point = { lat: Number(result.lat), lng: Number(result.lon) };
+    if (!Number.isFinite(point.lat) ||
+      !Number.isFinite(point.lng) ||
+      !isInsideWestBengal(point) ||
+      !looksLikeWestBengalResult(result)) {
+      return;
+    }
+
+    const name = result.name || result.address?.city || result.address?.town || result.address?.village || value;
+    const normalizedName = normalizeStop(name);
+    if (!normalizedName || seen.has(normalizedName)) return;
+    seen.add(normalizedName);
+
+    const place = {
+      name,
+      lat: point.lat,
+      lng: point.lng,
+      detail: result.address?.county || result.address?.state_district || 'West Bengal'
+    };
+    suggestions.push(place);
+    cache[normalizedName] = { name: place.name, lat: place.lat, lng: place.lng };
+  });
+
+  saveGeocodeCache(cache);
+  return suggestions;
+}
+
+async function resolveTripPlaces(pickup, destination) {
+  const [start, end] = await Promise.all([
+    resolveWestBengalPlace(pickup),
+    resolveWestBengalPlace(destination)
+  ]);
+
+  return { start, end };
+}
+
 function busCardHTML(bus) {
   const cap = bus.capacity;
   const icon = cap === 'Empty' ? 'fa-user-check' : cap === 'Crowded' ? 'fa-users-slash' : 'fa-users';
@@ -195,12 +390,174 @@ function renderBusList(containerId, list) {
   el.innerHTML = list.map(busCardHTML).join('');
 }
 
-function runSearch(prefix) {
+function escapeHTML(value) {
+  return String(value || '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
+function routeActionHTML(pickup, destination, label = 'Show route on map') {
+  const safePickup = escapeHTML(pickup);
+  const safeDestination = escapeHTML(destination);
+  return `
+    <button class="route-result-btn" type="button" data-show-route data-pickup="${safePickup}" data-destination="${safeDestination}">
+      <i class="fas fa-route"></i>${escapeHTML(label)}
+    </button>
+  `;
+}
+
+function renderMatchedSearchList(prefix, list) {
+  const container = document.getElementById(`${prefix}BusList`);
+  if (!container) return;
+
+  const pickup = document.getElementById(`${prefix}PickupInput`)?.value.trim() || selectedPickup;
+  const destination = document.getElementById(`${prefix}DestinationInput`)?.value.trim() || selectedDestination;
+  container.innerHTML = `${routeActionHTML(pickup, destination, 'View full route')}${list.map(busCardHTML).join('')}`;
+}
+
+function searchResult(list = [], routeReady = false) {
+  list.routeReady = routeReady;
+  return list;
+}
+
+function placeSuggestionHTML(place, active = false) {
+  return `
+    <button class="place-suggest-item${active ? ' active' : ''}" type="button" data-place-name="${escapeHTML(place.name)}">
+      <span class="place-suggest-icon"><i class="fas fa-location-dot"></i></span>
+      <span class="place-suggest-main">
+        <strong>${escapeHTML(place.name)}</strong>
+        <span>${escapeHTML(place.detail || 'West Bengal, India')}</span>
+      </span>
+    </button>
+  `;
+}
+
+function setupPlaceSuggest(inputId, isDestination = false) {
+  const input = document.getElementById(inputId);
+  if (!input || input.dataset.suggestReady === 'true') return;
+
+  input.dataset.suggestReady = 'true';
+  const wrap = document.createElement('div');
+  wrap.className = `place-input-wrap${isDestination ? ' destination-wrap' : ''}`;
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+
+  const panel = document.createElement('div');
+  panel.className = 'place-suggest-panel';
+  wrap.appendChild(panel);
+
+  let activeIndex = -1;
+  let latestQuery = '';
+  let timer = null;
+
+  const render = (places, message = '') => {
+    activeIndex = -1;
+    if (message) {
+      panel.innerHTML = `<div class="place-suggest-empty">${escapeHTML(message)}</div>`;
+      panel.classList.add('show');
+      return;
+    }
+
+    if (!places.length) {
+      panel.innerHTML = '';
+      panel.classList.remove('show');
+      return;
+    }
+
+    panel.innerHTML = places.map(place => placeSuggestionHTML(place)).join('');
+    panel.classList.add('show');
+  };
+
+  const choose = name => {
+    input.value = name;
+    panel.classList.remove('show');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  const updateActive = items => {
+    items.forEach((item, index) => item.classList.toggle('active', index === activeIndex));
+  };
+
+  const update = async () => {
+    const query = input.value.trim();
+    latestQuery = query;
+    const local = localPlaceSuggestions(query);
+    render(local, query.length < 2 && !local.length ? 'Start typing a West Bengal place' : '');
+
+    if (query.length < 2) return;
+    try {
+      const remote = await fetchWestBengalSuggestions(query);
+      if (latestQuery !== query) return;
+      const merged = [...local];
+      remote.forEach(place => {
+        if (!merged.some(item => normalizeStop(item.name) === normalizeStop(place.name))) merged.push(place);
+      });
+      render(merged.slice(0, 7), merged.length ? '' : 'No West Bengal places found');
+    } catch (error) {
+      if (!local.length) render([], 'Live suggestions unavailable');
+    }
+  };
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    render(localPlaceSuggestions(input.value.trim()));
+    timer = setTimeout(update, 280);
+  });
+
+  input.addEventListener('focus', () => {
+    render(localPlaceSuggestions(input.value.trim()));
+  });
+
+  input.addEventListener('keydown', event => {
+    const items = [...panel.querySelectorAll('.place-suggest-item')];
+    if (!items.length || !panel.classList.contains('show')) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      activeIndex = (activeIndex + 1) % items.length;
+      updateActive(items);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      updateActive(items);
+    } else if (event.key === 'Enter' && activeIndex >= 0) {
+      event.preventDefault();
+      choose(items[activeIndex].dataset.placeName);
+    } else if (event.key === 'Escape') {
+      panel.classList.remove('show');
+    }
+  });
+
+  panel.addEventListener('mousedown', event => {
+    const item = event.target.closest('.place-suggest-item');
+    if (!item) return;
+    event.preventDefault();
+    choose(item.dataset.placeName);
+  });
+
+  document.addEventListener('click', event => {
+    if (!wrap.contains(event.target)) panel.classList.remove('show');
+  });
+}
+
+function initPlaceSuggesters() {
+  setupPlaceSuggest('mobPickupInput');
+  setupPlaceSuggest('mobDestinationInput', true);
+  setupPlaceSuggest('deskPickupInput');
+  setupPlaceSuggest('deskDestinationInput', true);
+}
+
+async function runSearch(prefix) {
   const pickupEl = document.getElementById(`${prefix}PickupInput`);
   const destinationEl = document.getElementById(`${prefix}DestinationInput`);
   const hint = document.getElementById(`${prefix}SearchHint`);
   const wrap = document.getElementById(`${prefix}ResultsWrap`);
   const count = document.getElementById(`${prefix}BusCountLive`);
+  const list = document.getElementById(`${prefix}BusList`);
 
   const pickup = pickupEl ? pickupEl.value.trim() : '';
   const destination = destinationEl ? destinationEl.value.trim() : '';
@@ -208,23 +565,66 @@ function runSearch(prefix) {
   if (!pickup || !destination) {
     if (hint) hint.textContent = 'Please enter both pickup and destination.';
     if (wrap) wrap.style.display = 'none';
-    return [];
+    if (list) list.innerHTML = '';
+    return searchResult();
   }
 
+  if (hint) hint.textContent = 'Searching West Bengal places...';
   const matched = getMatchingBuses(pickup, destination);
+  let places = { start: getStop(pickup), end: getStop(destination) };
 
-  if (!matched.length) {
-    if (hint) hint.textContent = 'No buses found for this route.';
-    if (wrap) wrap.style.display = 'none';
-    return [];
+  if (!places.start || !places.end) {
+    try {
+      places = await resolveTripPlaces(pickup, destination);
+    } catch (error) {
+      if (hint) hint.textContent = 'Place search is unavailable right now. Try again in a moment.';
+      if (wrap) wrap.style.display = 'none';
+      if (list) list.innerHTML = '';
+      return searchResult();
+    }
   }
 
-  if (hint) hint.textContent = `${pickup} → ${destination}`;
-  if (count) count.textContent = `${matched.length} found`;
+  if (!places.start || !places.end) {
+    if (hint) hint.textContent = 'Could not find both places inside West Bengal.';
+    if (wrap) wrap.style.display = 'none';
+    if (list) list.innerHTML = '';
+    return searchResult();
+  }
+
+  saveActiveTrip('', pickup, destination);
+  if (hint) hint.textContent = `${places.start.name} to ${places.end.name}`;
   if (wrap) wrap.style.display = 'block';
 
-  return matched;
+  if (!matched.length) {
+    if (count) count.textContent = 'Route ready';
+    if (list) {
+      list.innerHTML = `
+        <div class="route-result-card">
+          <div>
+            <strong>${escapeHTML(places.start.name)} to ${escapeHTML(places.end.name)}</strong>
+            <span>No matching bus is saved yet, but the road route can be shown.</span>
+          </div>
+          ${routeActionHTML(pickup, destination)}
+        </div>
+      `;
+    }
+    return searchResult([], true);
+  }
+
+  if (count) count.textContent = `${matched.length} found`;
+  renderMatchedSearchList(prefix, matched);
+
+  return searchResult(matched, true);
 }
+
+/*
+
+}
+
+  if (hint) hint.textContent = `${pickup} → ${destination}`;
+}
+
+*/
 
 // Live map data and helpers
 const mapBuses = buses.map((bus, index) => ({
@@ -504,8 +904,28 @@ function openMapForBus(busName, mode) {
   window.location.href = mapPageUrl(busName, pickup, destination);
 }
 
+function openMapForRoute(pickup, destination) {
+  selectedBusName = '';
+  selectedPickup = pickup;
+  selectedDestination = destination;
+  saveActiveTrip('', pickup, destination);
+  queueMapLocationRequest();
+  window.location.href = mapPageUrl('', pickup, destination);
+}
+
+function showRouteOnDashboard(pickup, destination, busName = '') {
+  selectedBusName = busName;
+  selectedPickup = pickup;
+  selectedDestination = destination;
+  saveActiveTrip(busName, pickup, destination);
+  updateTripRouteLabel();
+  refreshActiveMap('home', 'desktop');
+  renderPlannedRoute(deskMapHome);
+}
+
 function getStop(value) {
-  return stopCoordinates[normalizeStop(value)];
+  const key = normalizeStop(value);
+  return stopCoordinates[key] || loadGeocodeCache()[key];
 }
 
 function distanceKm(a, b) {
@@ -652,15 +1072,24 @@ function setDestinationMarker(mapRef, destination) {
     return;
   }
 
-  mapRef.destinationMarker = L.circleMarker(destinationLatLng, {
-    radius: 8,
-    color: '#111827',
-    weight: 3,
-    fillColor: '#f59e0b',
-    fillOpacity: 1
-  })
-    .bindPopup(`<b>${destination.name}</b>`)
+  mapRef.destinationMarker = L.marker(destinationLatLng, { icon: getRoutePinIcon('destination') })
+    .bindPopup(`<b>${escapeHTML(destination.name)}</b>`)
     .addTo(mapRef.map);
+}
+
+function getRoutePinIcon(type) {
+  const isPickup = type === 'pickup';
+  return L.divIcon({
+    html: `
+      <span class="route-map-pin ${isPickup ? 'pickup-pin' : 'destination-pin'}">
+        <i class="fas ${isPickup ? 'fa-location-dot' : 'fa-map-marker-alt'}"></i>
+      </span>
+    `,
+    className: 'route-map-pin-wrap',
+    iconSize: [34, 42],
+    iconAnchor: [17, 41],
+    popupAnchor: [0, -38]
+  });
 }
 
 function setRouteLine(mapRef, points) {
@@ -680,11 +1109,23 @@ function setRouteLine(mapRef, points) {
 async function renderPlannedRoute(mapRef) {
   if (!mapRef || !mapRef.map || !selectedPickup || !selectedDestination) return;
 
-  const pickup = getStop(selectedPickup);
-  const destination = getStop(selectedDestination);
+  updateMapStatus('Searching route places in West Bengal...');
+  let pickup = getStop(selectedPickup);
+  let destination = getStop(selectedDestination);
 
   if (!pickup || !destination) {
-    updateMapStatus('Route selected. Allow location to show where you are.');
+    try {
+      const places = await resolveTripPlaces(selectedPickup, selectedDestination);
+      pickup = places.start;
+      destination = places.end;
+    } catch (error) {
+      updateMapStatus('Place search is unavailable right now. Try again in a moment.');
+      return;
+    }
+  }
+
+  if (!pickup || !destination) {
+    updateMapStatus('Could not find both route places inside West Bengal.');
     return;
   }
 
@@ -701,7 +1142,7 @@ async function renderPlannedRoute(mapRef) {
       fillColor: '#10b981',
       fillOpacity: 1
     })
-      .bindPopup(`<b>${pickup.name}</b>`)
+      .bindPopup(`<b>${escapeHTML(pickup.name)}</b>`)
       .addTo(mapRef.map);
   }
 
@@ -720,10 +1161,19 @@ async function renderPlannedRoute(mapRef) {
 async function renderTripOnMap(mapRef) {
   if (!mapRef || !mapRef.map || !guestLocation) return;
 
-  const destination = getStop(selectedDestination);
+  let destination = getStop(selectedDestination);
+  if (!destination && selectedDestination) {
+    try {
+      destination = await resolveWestBengalPlace(selectedDestination);
+    } catch (error) {
+      updateMapStatus('Place search is unavailable right now. Try again in a moment.');
+      return;
+    }
+  }
+
   if (!destination) {
     mapRef.map.setView([guestLocation.lat, guestLocation.lng], 14, { animate: true });
-    updateMapStatus('Your location is shown. Choose a supported destination to calculate ETA.');
+    updateMapStatus('Your location is shown. Choose a West Bengal destination to calculate ETA.');
     return;
   }
 
@@ -763,6 +1213,7 @@ function initApp() {
   initDashboardAlertPopup();
   bindMapNavigationLinks();
   bindInsideBusToggles();
+  initPlaceSuggesters();
 
   initDateDropdown('mobDateSelect', 'mobDatePicker', 'mobSelectedDateLabel');
   initDateDropdown('deskDateSelect', 'deskDatePicker', 'deskSelectedDateLabel');
@@ -771,16 +1222,24 @@ function initApp() {
   const deskSearchBtn = document.getElementById('deskSearchBtn');
 
   if (mobSearchBtn) {
-    mobSearchBtn.addEventListener('click', () => {
-      mobSearchResults = runSearch('mob');
-      if (mobSearchResults.length) renderBusList('mobBusList', mobSearchResults);
+    mobSearchBtn.addEventListener('click', async () => {
+      mobSearchResults = await runSearch('mob');
+      if (mobSearchResults.routeReady) {
+        const pickup = document.getElementById('mobPickupInput')?.value.trim() || '';
+        const destination = document.getElementById('mobDestinationInput')?.value.trim() || '';
+        openMapForRoute(pickup, destination);
+      }
     });
   }
 
   if (deskSearchBtn) {
-    deskSearchBtn.addEventListener('click', () => {
-      deskSearchResults = runSearch('desk');
-      if (deskSearchResults.length) renderBusList('deskBusList', deskSearchResults);
+    deskSearchBtn.addEventListener('click', async () => {
+      deskSearchResults = await runSearch('desk');
+      if (deskSearchResults.routeReady) {
+        const pickup = document.getElementById('deskPickupInput')?.value.trim() || '';
+        const destination = document.getElementById('deskDestinationInput')?.value.trim() || '';
+        showRouteOnDashboard(pickup, destination);
+      }
     });
   }
 
@@ -789,6 +1248,11 @@ function initApp() {
 
   if (mobBusList) {
     mobBusList.addEventListener('click', event => {
+      const routeButton = event.target.closest('[data-show-route]');
+      if (routeButton) {
+        openMapForRoute(routeButton.dataset.pickup, routeButton.dataset.destination);
+        return;
+      }
       const card = event.target.closest('.bus-card[data-bus-name]');
       if (card) openMapForBus(card.dataset.busName, 'mobile');
     });
@@ -804,15 +1268,26 @@ function initApp() {
 
   if (deskBusList) {
     deskBusList.addEventListener('click', event => {
+      const routeButton = event.target.closest('[data-show-route]');
+      if (routeButton) {
+        showRouteOnDashboard(routeButton.dataset.pickup, routeButton.dataset.destination);
+        return;
+      }
       const card = event.target.closest('.bus-card[data-bus-name]');
-      if (card) openMapForBus(card.dataset.busName, 'desktop');
+      if (card) {
+        const pickup = document.getElementById('deskPickupInput')?.value.trim() || selectedPickup;
+        const destination = document.getElementById('deskDestinationInput')?.value.trim() || selectedDestination;
+        showRouteOnDashboard(pickup, destination, card.dataset.busName);
+      }
     });
     deskBusList.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       const card = event.target.closest('.bus-card[data-bus-name]');
       if (card) {
         event.preventDefault();
-        openMapForBus(card.dataset.busName, 'desktop');
+        const pickup = document.getElementById('deskPickupInput')?.value.trim() || selectedPickup;
+        const destination = document.getElementById('deskDestinationInput')?.value.trim() || selectedDestination;
+        showRouteOnDashboard(pickup, destination, card.dataset.busName);
       }
     });
   }
@@ -934,10 +1409,10 @@ document.querySelectorAll('.sd-nav-item[data-dsk]').forEach(btn => {
 
 setInterval(() => {
   if (mobActivePage === 'home' && mobSearchResults.length) {
-    renderBusList('mobBusList', mobSearchResults);
+    renderMatchedSearchList('mob', mobSearchResults);
   }
   if (deskActivePage === 'home' && deskSearchResults.length) {
-    renderBusList('deskBusList', deskSearchResults);
+    renderMatchedSearchList('desk', deskSearchResults);
   }
 }, 1000);
 

@@ -42,8 +42,8 @@
               <div class="live-badge"><span class="live-dot"></span> Live</div>
             </div>
 
-            <input id="mobPickupInput" class="search-input" list="wbStops" type="text" placeholder="Pickup location..." />
-            <input id="mobDestinationInput" class="search-input" list="wbStops" type="text" placeholder="Destination location..." />
+            <input id="mobPickupInput" class="search-input" type="text" placeholder="Pickup location..." autocomplete="off" />
+            <input id="mobDestinationInput" class="search-input" type="text" placeholder="Destination location..." autocomplete="off" />
             <button id="mobSearchBtn" class="search-btn" type="button">Search</button>
             <div class="dest-hint" id="mobSearchHint"></div>
 
@@ -135,9 +135,6 @@
         <div class="desk-topbar">
           <h1 id="deskPageTitle">Dashboard</h1>
           <div class="topbar-right">
-            <div class="topbar-loc">
-              <i class="fas fa-map-marker-alt"></i> Siliguri Bus Stand, Sevoke Rd
-            </div>
             <div class="alert-menu-wrap">
               <button class="top-alert-btn" id="dashboardAlertBtn" type="button" aria-label="Show alerts">
                 <i class="fas fa-bell"></i>
@@ -171,32 +168,11 @@
 
           <!-- ── DASHBOARD ── -->
           <div class="d-page d-active" id="desk-homePage">
-            <div class="stats-bar">
-              <div class="stat-chip">
-                <div class="stat-chip-icon orange"><i class="fas fa-bus"></i></div>
-                <div class="stat-chip-text">
-                  <strong id="deskBusCountChip"></strong><span>Buses nearby</span>
-                </div>
-              </div>
-              <div class="stat-chip">
-                <div class="stat-chip-icon blue"><i class="fas fa-clock"></i></div>
-                <div class="stat-chip-text">
-                  <strong id="deskNextChip"></strong><span>Next arrival</span>
-                </div>
-              </div>
-              <div class="stat-chip">
-                <div class="stat-chip-icon green"><i class="fas fa-check-circle"></i></div>
-                <div class="stat-chip-text">
-                  <strong></strong><span>On-time today</span>
-                </div>
-              </div>
-            </div>
-
             <div class="home-grid">
               <div class="panel">
                 <div class="panel-title">Plan Your Trip</div>
-                <input id="deskPickupInput" class="search-input" list="wbStops" type="text" placeholder="Pickup location..." />
-                <input id="deskDestinationInput" class="search-input" list="wbStops" type="text" placeholder="Destination location..." />
+                <input id="deskPickupInput" class="search-input" type="text" placeholder="Pickup location..." autocomplete="off" />
+                <input id="deskDestinationInput" class="search-input" type="text" placeholder="Destination location..." autocomplete="off" />
                 <button id="deskSearchBtn" class="search-btn" type="button">Search</button>
                 <div class="dest-hint" id="deskSearchHint"></div>
 
@@ -257,6 +233,34 @@
       <option value="Raiganj"></option>
       <option value="Malda"></option>
       <option value="Kolkata"></option>
+      <option value="Howrah"></option>
+      <option value="Howrah Station"></option>
+      <option value="Digha"></option>
+      <option value="Darjeeling"></option>
+      <option value="Kalimpong"></option>
+      <option value="Jalpaiguri"></option>
+      <option value="Cooch Behar"></option>
+      <option value="Alipurduar"></option>
+      <option value="New Town"></option>
+      <option value="Salt Lake"></option>
+      <option value="Barasat"></option>
+      <option value="Barrackpore"></option>
+      <option value="Krishnanagar"></option>
+      <option value="Baharampur"></option>
+      <option value="Bolpur"></option>
+      <option value="Durgapur"></option>
+      <option value="Asansol"></option>
+      <option value="Burdwan"></option>
+      <option value="Midnapore"></option>
+      <option value="Kharagpur"></option>
+      <option value="Haldia"></option>
+      <option value="Purulia"></option>
+      <option value="Bankura"></option>
+      <option value="Tarakeswar"></option>
+      <option value="Chandannagar"></option>
+      <option value="Serampore"></option>
+      <option value="Bongaon"></option>
+      <option value="Basirhat"></option>
     </datalist>
 
     <!-- ═════════════ SCRIPTS ═════════════ -->
