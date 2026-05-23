@@ -1220,14 +1220,11 @@ async function ensurePlannedRouteState() {
 function warnNotInsideSelectedBus() {
   setInsideBusMode(false);
   stopLocationWatch();
-  const warning = selectedBusName
-    ? `Not in ${selectedBusName}. Your current location is not on this bus route.`
-    : 'Not in the bus. Select a bus first to use Inside bus mode.';
   Promise.allSettled([
     renderPlannedRoute(deskMapFull),
     renderPlannedRoute(mobMap),
     renderPlannedRoute(deskMapHome)
-  ]).finally(() => updateMapStatus(warning));
+  ]).finally(() => updateMapStatus('Not in the Bus', { warning: true }));
 }
 
 function clearBusMarker(mapRef) {
@@ -1291,9 +1288,10 @@ function etaText(distance) {
   return { duration, arrival };
 }
 
-function updateMapStatus(message) {
+function updateMapStatus(message, options = {}) {
   document.querySelectorAll('[data-map-status]').forEach(element => {
     element.textContent = message;
+    element.classList.toggle('map-status-warning', Boolean(options.warning));
   });
 }
 

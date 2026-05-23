@@ -1348,6 +1348,21 @@
   letter-spacing: 0.02em;
 }
 
+.map-status-warning {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 6px 10px;
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 .route-actions {
   display: flex;
   align-items: center;
