@@ -30,6 +30,18 @@
     </div>
 
     <!-- ═══════════════════ MOBILE SHELL ═══════════════════ -->
+    <script>
+      (() => {
+      if (localStorage.getItem('smartBusDashboardPreloaderSeen') === '1') {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+          preloader.classList.add('hide');
+          preloader.style.display = 'none';
+        }
+      }
+      })();
+    </script>
+
     <div class="mobile-only mobile-shell">
       <div class="app-container">
         <div class="main-content" id="mobMainContent">

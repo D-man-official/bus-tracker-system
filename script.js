@@ -726,6 +726,11 @@ let selectedDestination = routeParams.get('destination') || savedTrip.destinatio
 let guestLocation = null;
 let insideBusMode = false;
 let insideBusSuggested = false;
+let locationWatchId = null;
+let locationWatchStarted = false;
+let lastLiveRouteRefresh = 0;
+let liveRouteRefreshTimer = null;
+const LIVE_ROUTE_REFRESH_MS = 12000;
 
 function loadActiveTrip() {
   try {
@@ -861,9 +866,32 @@ function showGuestLocation(mapRef, position) {
 
   const latLng = [guestLocation.lat, guestLocation.lng];
   renderUserMarker(mapRef, latLng);
+}
 
-  renderTripOnMap(mapRef);
+function showLiveLocationOnMaps(position, options = {}) {
+  if (!position) return;
+
+  showGuestLocation(deskMapFull, position);
+  showGuestLocation(mobMap, position);
+  showGuestLocation(deskMapHome, position);
   suggestInsideBusToggle();
+  refreshLiveTripOnMaps(options.force);
+}
+
+function refreshLiveTripOnMaps(force = false) {
+  if (!guestLocation) return;
+
+  const now = Date.now();
+  if (!force && now - lastLiveRouteRefresh < LIVE_ROUTE_REFRESH_MS) {
+    clearTimeout(liveRouteRefreshTimer);
+    liveRouteRefreshTimer = setTimeout(() => refreshLiveTripOnMaps(true), LIVE_ROUTE_REFRESH_MS);
+    return;
+  }
+
+  lastLiveRouteRefresh = now;
+  renderTripOnMap(deskMapFull);
+  renderTripOnMap(mobMap);
+  renderTripOnMap(deskMapHome);
 }
 
 function renderUserMarker(mapRef, latLng) {
@@ -915,13 +943,17 @@ function askGuestLocation(mapRef) {
 
   updateMapStatus('Allow location access to show where you are and calculate trip time.');
   navigator.geolocation.getCurrentPosition(
-    position => showGuestLocation(mapRef, position),
+    position => {
+      showGuestLocation(mapRef, position);
+      refreshLiveTripOnMaps(true);
+      startLocationWatch();
+    },
     () => updateMapStatus('Location permission was blocked. Allow location to calculate your ETA.'),
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
 }
 
-function askTripLocation() {
+function askTripLocation(options = {}) {
   if (!navigator.geolocation) {
     updateMapStatus('Location is not available in this browser.');
     return;
@@ -930,12 +962,39 @@ function askTripLocation() {
   updateMapStatus('Allow location access so the map can place you on this route.');
   navigator.geolocation.getCurrentPosition(
     position => {
-      showGuestLocation(deskMapFull, position);
-      showGuestLocation(mobMap, position);
+      showLiveLocationOnMaps(position, { force: true });
+      startLocationWatch();
+      if (options.insideBus) {
+        updateMapStatus(selectedBusName
+          ? `You are inside ${selectedBusName}. Your journey will keep updating on the map.`
+          : 'You are inside the bus. Your journey will keep updating on the map.');
+      }
     },
     () => updateMapStatus('Location permission was blocked. Allow location to calculate your ETA.'),
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
+}
+
+function startLocationWatch() {
+  if (!navigator.geolocation || locationWatchStarted) return;
+
+  locationWatchStarted = true;
+  locationWatchId = navigator.geolocation.watchPosition(
+    position => showLiveLocationOnMaps(position),
+    () => {
+      locationWatchStarted = false;
+      locationWatchId = null;
+      updateMapStatus('Live location stopped. Allow location access to keep the journey updated.');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+  );
+}
+
+function stopLocationWatch() {
+  if (!navigator.geolocation || locationWatchId === null) return;
+  navigator.geolocation.clearWatch(locationWatchId);
+  locationWatchId = null;
+  locationWatchStarted = false;
 }
 
 function setInsideBusMode(active) {
@@ -962,6 +1021,12 @@ function bindInsideBusToggles() {
       insideBusSuggested = false;
       setInsideBusMode(nextInsideBusMode);
 
+      if (insideBusMode) {
+        startLocationWatch();
+      } else {
+        stopLocationWatch();
+      }
+
       if (guestLocation) {
         const currentPosition = {
           coords: {
@@ -969,15 +1034,14 @@ function bindInsideBusToggles() {
             longitude: guestLocation.lng
           }
         };
-        showGuestLocation(deskMapFull, currentPosition);
-        showGuestLocation(mobMap, currentPosition);
+        showLiveLocationOnMaps(currentPosition, { force: true });
         if (insideBusMode) {
           updateMapStatus(selectedBusName
-            ? `You are inside ${selectedBusName}. Your live position is shown on this route.`
-            : 'You are inside the bus. Your live position is shown on this route.');
+            ? `You are inside ${selectedBusName}. Your journey will keep updating on the map.`
+            : 'You are inside the bus. Your journey will keep updating on the map.');
         }
       } else {
-        askTripLocation();
+        askTripLocation({ insideBus: insideBusMode });
       }
     });
   });
@@ -1010,6 +1074,11 @@ function showRouteOnDashboard(pickup, destination, busName = '') {
   updateTripRouteLabel();
   refreshActiveMap('home', 'desktop');
   renderPlannedRoute(deskMapHome);
+  if (guestLocation) {
+    refreshLiveTripOnMaps(true);
+  } else {
+    askTripLocation();
+  }
 }
 
 function getStop(value) {
@@ -1267,6 +1336,32 @@ function setSelectedBusMarker(mapRef, route, pickup, destination) {
   return { bus, busLatLng, travelledKm, remainingKm, progress };
 }
 
+function setRidingBusMarker(mapRef, userLatLng) {
+  if (!mapRef || !mapRef.map || !selectedBusName || !insideBusMode) return;
+
+  const bus = mapBuses.find(item => item.name === selectedBusName);
+  const popup = `
+    <b>${escapeHTML(selectedBusName)}</b><br>
+    You are riding this bus now.<br>
+    Live journey is following your location.
+  `;
+
+  if (bus) {
+    bus.currentLat = userLatLng[0];
+    bus.currentLng = userLatLng[1];
+    bus.lat = userLatLng[0];
+    bus.lng = userLatLng[1];
+  }
+
+  if (mapRef.busMarker) {
+    mapRef.busMarker.setLatLng(userLatLng).setPopupContent(popup);
+  } else {
+    mapRef.busMarker = L.marker(userLatLng, { icon: getMapIcon('bus') })
+      .bindPopup(popup)
+      .addTo(mapRef.map);
+  }
+}
+
 async function renderPlannedRoute(mapRef) {
   if (!mapRef || !mapRef.map || !selectedPickup || !selectedDestination) return;
 
@@ -1349,6 +1444,7 @@ async function renderTripOnMap(mapRef) {
   const userLatLng = [userPoint.lat, userPoint.lng];
 
   setDestinationMarker(mapRef, destination);
+  setRidingBusMarker(mapRef, userLatLng);
   updateMapStatus('Loading road route from your location...');
 
   const route = await resolveRoutePath(userPoint, destination, selectedPickup, selectedDestination);
@@ -1483,7 +1579,7 @@ function initApp() {
     }
   }
 
-  if (!selectedBusName && (arrivedFromBusClick || selectedDestination)) {
+  if (arrivedFromBusClick || selectedDestination) {
     askTripLocation();
   }
 }
@@ -1584,11 +1680,26 @@ setInterval(() => {
 }, 1000);
 
 // PRELOADER
+const DASHBOARD_PRELOADER_SEEN_KEY = 'smartBusDashboardPreloaderSeen';
+const preloader = document.getElementById('preloader');
+
+if (preloader && localStorage.getItem(DASHBOARD_PRELOADER_SEEN_KEY) === '1') {
+  preloader.classList.add('hide');
+  preloader.style.display = 'none';
+}
+
 window.addEventListener('load', () => {
+  const dashboardPreloader = document.getElementById('preloader');
+  if (!dashboardPreloader) return;
+
+  if (localStorage.getItem(DASHBOARD_PRELOADER_SEEN_KEY) === '1') {
+    dashboardPreloader.classList.add('hide');
+    dashboardPreloader.style.display = 'none';
+    return;
+  }
+
   setTimeout(() => {
-    const preloader = document.getElementById('preloader');
-    if (preloader) {
-      preloader.classList.add('hide');
-    }
+    dashboardPreloader.classList.add('hide');
+    localStorage.setItem(DASHBOARD_PRELOADER_SEEN_KEY, '1');
   }, 2700);
 });
