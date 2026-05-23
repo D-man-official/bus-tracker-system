@@ -82,9 +82,38 @@
 
           <!-- MAP -->
           <div id="mob-mapPage" class="page mob-map-page">
+            <div class="mob-header" style="margin-bottom: 8px">
+              <h1>Live Map</h1>
+              <button class="inside-bus-toggle" data-inside-bus-toggle type="button" aria-pressed="false">
+                <span>Inside bus</span><span class="toggle-switch" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="trip-summary">
+              <div>
+                <span>Pickup</span>
+                <strong data-trip-pickup>--</strong>
+              </div>
+              <div>
+                <span>Destination</span>
+                <strong data-trip-destination>--</strong>
+              </div>
+              <div>
+                <span>Distance left</span>
+                <strong data-trip-distance>Waiting</strong>
+              </div>
+              <div>
+                <span>ETA</span>
+                <strong data-trip-duration>--</strong>
+              </div>
+              <div>
+                <span>Reach by</span>
+                <strong data-trip-arrival>--</strong>
+              </div>
+            </div>
             <div class="mob-map-frame">
               <div id="mobFullMap"></div>
             </div>
+            <p class="map-status" data-map-status>Choose a bus from search to track ETA.</p>
           </div>
 
         </div>
